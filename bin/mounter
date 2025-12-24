@@ -1,10 +1,15 @@
 #!/bin/bash
 
+# By LUKE SMITH
+#
 # Mounts Android Phones and USB drives (encrypted or not). This script will
 # replace the older `dmenumount` which had extra steps and couldn't handle
 # encrypted drives.
 # TODO: Try decrypt for drives in crtypttab
 # TODO: Add some support for connecting iPhones (although they are annoying).
+
+launcher="rofi -dmenu"
+#launcher="dmenu"
 
 IFS='
 '
@@ -56,21 +61,21 @@ set -e
 test -n "$alldrives"
 
 # Feed all found drives to dmenu and get user choice.
-chosen="$(echo "$alldrives" | dmenu -p "Mount which drive?" -i)"
+chosen="$(echo "$alldrives" | $launcher -p "Mount which drive?" -i)"
 
 # Function for prompting user for a mountpoint.
 getmount(){
-	mp="$(find /mnt /media /mount /home -maxdepth 1 -type d 2>/dev/null | dmenu -i -p "Mount this drive where?")"
+	mp="$(find /mnt /media /mount /home -maxdepth 1 -type d 2>/dev/null | $launcher -i -p "Mount this drive where?")"
 	test -n "$mp"
 	if [ ! -d "$mp" ]; then
-		mkdiryn=$(printf "No\\nYes" | dmenu -i -p "$mp does not exist. Create it?")
-		[ "$mkdiryn" = "Yes" ] && (mkdir -p "$mp" || sudo -A mkdir -p "$mp")
+		mkdiryn=$(printf "No\\nYes" | $launcher -i -p "$mp does not exist. Create it?")
+		[ "$mkdiryn" = "Yes" ] && (mkdir -p "$mp" || doas -A mkdir -p "$mp")
 	fi
 }
 
 attemptmount(){
 		# Attempt to mount without a mountpoint, to see if drive is in fstab.
-		sudo -A mount "$chosen" || return 1
+		doas -A mount "$chosen" || return 1
 		notify-send "💾Drive Mounted." "$chosen mounted."
 		exit
 }
@@ -82,9 +87,9 @@ case "$chosen" in
 		parttype="$(echo "$lsblkoutput" | grep "$chosen")"
 		attemptmount || getmount
 		case "${parttype##* }" in
-			vfat) sudo -A mount -t vfat "$chosen" "$mp" -o rw,umask=0000 ;;
-			btrfs) sudo -A mount "$chosen" "$mp" ;;
-			*) sudo -A mount "$chosen" "$mp" -o uid="$(id -u)",gid="$(id -g)" ;;
+			vfat) doas -A mount -t vfat "$chosen" "$mp" -o rw,umask=0000 ;;
+			btrfs) doas -A mount "$chosen" "$mp" ;;
+			*) doas -A mount "$chosen" "$mp" -o uid="$(id -u)",gid="$(id -g)" ;;
 		esac
 		notify-send "💾Drive Mounted." "$chosen mounted to $mp."
 		;;
@@ -99,12 +104,12 @@ case "$chosen" in
 		done
 
 		# Decrypt in a terminal window
-		${TERMINAL:-st} -n floatterm -g 60x1 -e sudo cryptsetup open "$chosen" "usb$num"
+		${TERMINAL:-st} -n floatterm -g 60x1 -e doas cryptsetup open "$chosen" "usb$num"
 		# Check if now decrypted.
 		test -b "/dev/mapper/usb$num"
 
 		attemptmount || getmount
-		sudo -A mount "/dev/mapper/usb$num" "$mp" -o uid="$(id -u)",gid="$(id -g)"
+		doas -A mount "/dev/mapper/usb$num" "$mp" -o uid="$(id -u)",gid="$(id -g)"
 		notify-send "🔓Decrypted drive Mounted." "$chosen decrypted and mounted to $mp."
 		;;
 
@@ -113,7 +118,7 @@ case "$chosen" in
 		getmount
 		number="${chosen%%:*}"
 		number="${chosen:1}"	# This is a bashism.
-		sudo -A simple-mtpfs -o allow_other -o fsname="simple-mtpfs-$(escape "$chosen")" --device "$number" "$mp"
+		doas -A simple-mtpfs -o allow_other -o fsname="simple-mtpfs-$(escape "$chosen")" --device "$number" "$mp"
 		notify-send "🤖 Android Mounted." "Android device mounted to $mp."
 		;;
 esac

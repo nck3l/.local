@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Simple dmenu/rof screenshot script
+# by Nick Luker
+# Dependencies: maim, xdotool, Nerd Fonts (or remove the icon)
+#
+
+# Choose your launch program:
+launcher="rofi -dmenu -i"
+#launcher="dmenu -i"
+
+choice=$(printf "1.Screen\\n2.Window\\n3.Region" | $launcher -p "󰹑  Screenshot")
+case "${choice%% *}" in
+	1.Screen) maim ~/Pictures/Screenshots/screen-$(date '+%y%m%d-%H%M-%S').png && notify-send \"Screenshot Taken\"
+        ;;
+	2.Window) maim -d 3 -i $(xdotool getactivewindow) ~/Pictures/Screenshots/window-$(date '+%y%m%d-%H%M-%S').png && notify-send \"Screenshot Taken\"
+        ;;
+	3.Region) maim -s ~/Pictures/Screenshots/region-$(date '+%y%m%d-%H%M-%S').png && notify-send \"Screenshot Taken\"
+        ;;
+	*) return
+        ;;
+esac
